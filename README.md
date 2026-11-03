@@ -57,16 +57,20 @@ GPIO38 ───────────── LED WS2812 onboard (status)
 
 ## Firmware
 
-O CelerOS do devkit-s3 **não liga o Bluetooth por padrão** (a placa é o
-laboratório de USB host do projeto). Para o Celer Remote, recompile com o
-fragmento `firmware/devkit-s3-bt.defaults`:
+O CelerOS do devkit-s3 **não liga o Bluetooth por padrão** e usa a USB
+nativa como host OTG (a placa é o laboratório de USB do projeto). Para o
+Celer Remote, recompile com o fragmento
+`firmware/devkit-s3-celerbot.defaults`, que liga o NimBLE e troca o host
+OTG pelo **console/celerctl na USB-Serial/JTAG nativa** — o robô não usa
+`USB.*`, então um cabo só resolve flash, app e logcat:
 
 ```bash
 tools/build-firmware.sh            # CELEROS_DIR=../CelerOS, build-celerbot/
 tools/build-firmware.sh --fresh    # se build-celerbot/sdkconfig já existia sem BT
 ```
 
-Grave pela USB-C rotulada **UART** (a outra é o host OTG):
+Grave pela USB-C rotulada **USB** (nativa, `/dev/ttyACM0`); a **UART**
+(CP2102N) fica opcional nesta variante:
 
 ```bash
 idf.py -B build-celerbot -p /dev/ttyACM0 flash

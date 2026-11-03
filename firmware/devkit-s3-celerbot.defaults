@@ -1,8 +1,14 @@
-# CelerBot: Bluetooth (Celer Link) no ESP32-S3 DevKitC-1.
+# CelerBot: firmware do ESP32-S3 DevKitC-1 (BT + console na USB nativa).
 #
 # O devkit-s3 nasce como "laboratorio de USB host": o sdkconfig.defaults da
-# placa deixa o BT desligado de proposito. O CelerBot e controlado pelo Celer
-# Remote via Celer Link (BLE), entao o firmware dele precisa deste bloco.
+# placa liga o host OTG em GPIO19/20 e deixa o BT desligado de proposito. O
+# CelerBot nao usa host USB — precisa do Celer Link (BLE) e do celerctl/logcat.
+# Este fragmento troca o host pelo console/celerctl na USB-Serial/JTAG nativa
+# (a MESMA USB-C que grava) e liga o NimBLE.
+#
+# No ESP32-S3 o OTG e a USJ dividem o PHY interno: CELEROS_LINK_ON_USJ e
+# CELEROS_USB_HOST sao exclusivos no Kconfig. Com a USJ, um cabo so resolve
+# flash, console e celerctl; o USB-C rotulado UART (CP2102N) fica opcional.
 #
 # Uso (o tools/build-firmware.sh faz isso):
 #   idf.py -B build-celerbot -DSDKCONFIG=build-celerbot/sdkconfig \
@@ -29,3 +35,9 @@ CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
 # dois simbolos acima; explicito para o build falhar alto se o bloco NimBLE
 # for removido.
 CONFIG_CELEROS_BLUETOOTH=y
+
+# Console/celerctl na USB-Serial/JTAG nativa (o cabo rotulado "USB" do devkit).
+# Logs e sessoes do celerctl se multiplexam nessa mesma porta (SerialLink).
+CONFIG_CELEROS_LINK_ON_USJ=y
+# O host OTG sai: sem ele a USJ existe, e o robo nao usa USB.*.
+# CONFIG_CELEROS_USB_HOST is not set

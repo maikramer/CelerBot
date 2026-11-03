@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compila o CelerOS do ESP32-S3 DevKitC-1 com o Bluetooth do Celer Link.
 #
-# O fragmento firmware/devkit-s3-bt.defaults entra por cima dos defaults da
+# O fragmento firmware/devkit-s3-celerbot.defaults entra por cima dos defaults da
 # placa; o build dir e proprio (build-celerbot) para nao sobrescrever o
 # build-devkit-s3 de outros experimentos.
 #
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FRAG="$ROOT/firmware/devkit-s3-bt.defaults"
+FRAG="$ROOT/firmware/devkit-s3-celerbot.defaults"
 BUILD="${BUILD:-build-celerbot}"
 FRESH=0
 

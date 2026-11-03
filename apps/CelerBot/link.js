@@ -93,7 +93,7 @@ function create(opts) {
 
     function start() {
         if (!available()) {
-            log('Bluetooth desligado neste firmware: sem Celer Link (rebuild com o fragmento firmware/devkit-s3-bt.defaults)');
+            log('Bluetooth desligado neste firmware: sem Celer Link (rebuild com o fragmento firmware/devkit-s3-celerbot.defaults)');
             return false;
         }
         started = !!CelerLink.start(name, { pairing: pairing });
