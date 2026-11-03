@@ -34,13 +34,22 @@ GPIO8  ─── SDA ───── SDA
 GPIO9  ─── SCL ───── SCL
 3V3    ─── VCC ───── VCC (lógico)
 GND    ─── GND ───── GND ─────────────── GND da fonte 5 V (comum!)
+GND    ─── OE  ───── (habilita as saídas; OE é ativo em nível baixo)
                      V+ ────────────────── +5 V da fonte (NUNCA o 5 V do devkit)
                      CH0..CH7 ──────────── S0..S7 (ordem em calibracao.js)
 GPIO38 ───────────── LED WS2812 onboard (status)
 ```
 
+- **GPIO19/20 são o USB nativo** (D-/D+) e o perfil `devkit-s3` os reserva em
+  `gpioDeniedMask`: `System.i2c.beginAt(..., 20)` falha com "GPIO 20 invalido
+  para I2C (saida/reservado)". Não use 19/20 para I2C nem para OE.
+- **OE não é GPIO**: o driver `celeros.hw.pca9685` nunca configura OE. Ligue
+  ao **GND** para habilitar os 16 canais; solto (ou alto) as saídas ficam
+  desligadas e os servos não recebem PWM.
 - O S3 **não tem GPIO22..25**. O exemplo `{sda:22,scl:27}` do driver é de
   outra placa; aqui o bus é criado com `beginAt(8, 9, 400k)`.
+- Outros GPIOs livres servem (ex.: SDA 21 + SCL 8/9) desde que não sejam
+  19/20, 26..37 (flash/PSRAM octal) nem 43/44 (UART0 do console).
 - Endereço padrão do PCA9685: `0x40` (A0..A5 em GND). O app tenta de novo a
   cada 2 s se o chip não responder (cabo solto não exige reboot).
 - Um capacitor de 1000 µF na entrada de 5 V do PCA ajuda nos picos.
