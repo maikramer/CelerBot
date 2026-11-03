@@ -226,6 +226,38 @@ function quantosLongeDeHome(regs, tol) {
     check("erro do PCA9685 explicito", /PCA9685 sem resposta/.test(txt), txt);
 })();
 
+// ---- modo mapeamento: um servo por vez, sem Celer Link -------------------
+(function () {
+    console.log("CelerBot: modo mapeamento de servos");
+    const r = runAppFolder(appDir, {
+        noAppWire: true,
+        stopAtMs: 1500,
+        events: (env) => {
+            env.__harness.i2cAdd(0x40, {});
+            // appData cria /local/data/<pkg> no FS do harness
+            const dir = env.FS.appData();
+            env.FS.writeTextFile(dir + "mapear.txt", "1\n");
+        }
+    });
+    const txt = (r.log || []).join("\n");
+    check("app roda sem erro", r.err === null, r.err || "");
+    check("entra no modo mapeamento", /modo mapeamento/.test(txt), txt);
+    check("primeiro logico e o quadril dianteiro esquerdo",
+          /mapa: logico 0 \(quadril dianteiro esquerdo\) -> canal 0/.test(txt), txt);
+    check("nao sobe o Celer Link", !/\[link\] adv/.test(txt), txt);
+
+    const writes = r.env.__harness.i2cWrites();
+    check("allOff no inicio (todos frouxos)",
+          writes.some((w) => w.addr === 0x40 && w.reg === 0xFA), "sem 0xFA");
+    const ch0 = writes.filter((w) => w.addr === 0x40 && w.reg === 0x06);
+    check("so o canal 0 recebe pulso", ch0.length >= 2, "writes=" + ch0.length);
+    const outros = writes.filter((w) => w.addr === 0x40 && w.reg >= 0x0A && w.reg <= 0x25);
+    check("canais 1..7 ficam sem pulso", outros.length === 0, "writes=" + outros.length);
+    const offs = ch0.map((w) => w.data[2] | ((w.data[3] & 0x0F) << 8));
+    check("alterna 90/110 graus (offs 307/353)",
+          offs.indexOf(307) >= 0 && offs.indexOf(353) >= 0, offs.join(","));
+})();
+
 console.log("");
 if (failures) {
     console.log("FALHAS: " + failures);

@@ -30,7 +30,7 @@ módulos ES5), com interface = rádio (Celer Link) + LED + BOOT.
 
 ```
 DevKitC-1            PCA9685                  servos
-GPIO8  ─── SDA ───── SDA
+GPIO21 ─── SDA ───── SDA
 GPIO9  ─── SCL ───── SCL
 3V3    ─── VCC ───── VCC (lógico)
 GND    ─── GND ───── GND ─────────────── GND da fonte 5 V (comum!)
@@ -47,9 +47,10 @@ GPIO38 ───────────── LED WS2812 onboard (status)
   ao **GND** para habilitar os 16 canais; solto (ou alto) as saídas ficam
   desligadas e os servos não recebem PWM.
 - O S3 **não tem GPIO22..25**. O exemplo `{sda:22,scl:27}` do driver é de
-  outra placa; aqui o bus é criado com `beginAt(8, 9, 400k)`.
-- Outros GPIOs livres servem (ex.: SDA 21 + SCL 8/9) desde que não sejam
-  19/20, 26..37 (flash/PSRAM octal) nem 43/44 (UART0 do console).
+  outra placa; aqui o bus é criado com `beginAt(21, 9, 400k)`.
+- Outros GPIOs livres servem (ex.: SDA 8 + SCL 9, o par do exemplo da doc do
+  CelerOS) desde que não sejam 19/20, 26..37 (flash/PSRAM octal) nem 43/44
+  (UART0 do console) — aí é só trocar `pca.sda`/`pca.scl` em `calibracao.js`.
 - Endereço padrão do PCA9685: `0x40` (A0..A5 em GND). O app tenta de novo a
   cada 2 s se o chip não responder (cabo solto não exige reboot).
 - Um capacitor de 1000 µF na entrada de 5 V do PCA ajuda nos picos.
@@ -139,6 +140,46 @@ para na hora. Truques são de uma vez só e terminam no home.
 | âmbar piscando | firmware sem Bluetooth |
 | vermelho piscando | PCA9685 não responde |
 
+## Mapear os servos (bancada)
+
+O miniKame espera esta ordem (a mesma do `minikame.cpp` e do `kame_robot`):
+
+| lógico | junta | canal padrão |
+|--------|-------|--------------|
+| 0 | quadril dianteiro esquerdo | 0 |
+| 1 | quadril dianteiro direito | 1 |
+| 2 | joelho dianteiro esquerdo | 2 |
+| 3 | joelho dianteiro direito | 3 |
+| 4 | quadril traseiro esquerdo | 4 |
+| 5 | quadril traseiro direito | 5 |
+| 6 | joelho traseiro esquerdo | 6 |
+| 7 | joelho traseiro direito | 7 |
+
+Se o chicote não estiver nessa ordem, não recrimpe o servo: **mapeie**. O app
+tem um modo de bancada que energiza **um servo por vez** (os outros ficam
+frouxos) e alterna 90° → 110° → 90° a cada 800 ms.
+
+1. Apoie o robô: no modo mapeamento só o servo testado recebe pulso.
+2. Entre no modo e reabra o app:
+   ```bash
+   tools/deploy.sh /dev/ttyACM0 --map
+   ```
+   (equivale a criar `/local/data/celeros.celerbot/mapear.txt` e
+   `celerctl apps run celeros.celerbot`).
+3. Cada toque curto no **BOOT** passa para o próximo servo lógico. O logcat
+   diz qual lógico, qual junta ele deveria acionar e em que canal está:
+   ```
+   [CelerBot] mapa: logico 0 (quadril dianteiro esquerdo) -> canal 0 (S0)
+   ```
+4. Anote qual junta mexe em cada canal. Depois acerte o `ch` de cada servo
+   lógico em `apps/CelerBot/calibracao.js` — o `trim` e o `reverse`
+   acompanham a **junta**, não o canal.
+5. Rode `--map` de novo: agora cada lógico deve mover a junta certa. Se uma
+   junta girar ao contrário quando o robô for para o home, marque
+   `reverse: true` nela.
+6. Saia do modo: `tools/deploy.sh /dev/ttyACM0 --map-off` (remove o
+   marcador e reabre no modo normal). Segurar o BOOT também sai do app.
+
 ## Calibração
 
 `apps/CelerBot/calibracao.js` é a fonte: `trim` (graus somados ao ângulo),
@@ -220,6 +261,7 @@ apps/CelerBot/          o app (ES5, API 54)
   minikame.js           executor das marchas (osciladores + keyframes)
   marchas.js            tabela de marchas/poses/truques (porte do miniKame)
   calibracao.js         calibração dos 8 servos e parâmetros do robô
+  mapear.js             modo de bancada: um servo por vez, sem Celer Link
   link.js               protocolo do Celer Remote + keepalive
   test.js               wire do harness (não vai no pacote)
 firmware/               fragmento sdkconfig com o Bluetooth do Celer Link

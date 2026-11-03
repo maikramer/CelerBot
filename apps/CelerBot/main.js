@@ -6,9 +6,12 @@
 // BOOT ainda roda os truques em sequencia (bancada) e o logcat explica.
 //
 // Mecanica: 4 patas x 2 juntas (quadril + joelho) = 8 servos num PCA9685
-// (I2C em GPIO8/GPIO9). As marchas sao o porte do miniKame/Octosnake
+// (I2C em GPIO21/GPIO9). As marchas sao o porte do miniKame/Octosnake
 // (marchas.js + minikame.js); a calibracao fica em calibracao.js e pode ser
 // sobreposta por /local/data/celeros.celerbot/calibracao.json.
+//
+// Modo mapeamento (bancada): se existir mapear.txt na pasta do app, roda um
+// servo por vez para descobrir qual canal move qual junta (mapear.js).
 //
 // ES5 (Duktape). Permissoes: gpio (I2C/servos/neopixel), fs (override).
 
@@ -16,11 +19,23 @@ var HW = require('celeros.hw');
 var MiniKame = require('minikame');
 var Calibracao = require('calibracao');
 var Link = require('link');
+var Mapear = require('mapear');
 
-var VERSION = '0.1.0';   // manter igual ao app.json
+var VERSION = '0.2.0';   // manter igual ao app.json
 
 function log(msg) {
     System.print('[CelerBot] ' + msg);
+}
+
+// Caminho na pasta privada do app (/local/data/celeros.celerbot).
+function appFile(name) {
+    try {
+        if (typeof FS === 'undefined' || !FS.appData) return '';
+        var dir = String(FS.appData());
+        return dir + (dir.charAt(dir.length - 1) === '/' ? '' : '/') + name;
+    } catch (e) {
+        return '';
+    }
 }
 
 function copiarCfg(base, over) {
@@ -41,10 +56,8 @@ function copiarCfg(base, over) {
 function carregarCfg() {
     var cfg = Calibracao;
     try {
-        if (typeof FS === 'undefined' || !FS.appData) return cfg;
-        var dir = String(FS.appData());
-        var path = dir + (dir.charAt(dir.length - 1) === '/' ? '' : '/') + 'calibracao.json';
-        if (!FS.exists(path)) return cfg;
+        var path = appFile('calibracao.json');
+        if (!path || !FS.exists(path)) return cfg;
         var txt = FS.readTextFile(path);
         if (txt) {
             cfg = copiarCfg(Calibracao, JSON.parse(txt));
@@ -57,6 +70,12 @@ function carregarCfg() {
 }
 
 var cfg = carregarCfg();
+var mapeando = false;
+try {
+    var marca = appFile('mapear.txt');
+    mapeando = !!marca && !!FS.exists(marca);
+} catch (e) { mapeando = false; }
+
 var info = System.getInfo ? System.getInfo() : {};
 log('v' + VERSION + ' board=' + (info.board || '?') +
     ' api=' + System.getAPILevel() +
@@ -69,7 +88,7 @@ var pca = null;
 var bot = null;
 var led = null;
 
-function initHardware() {
+function initHardware(home) {
     try {
         if (!pca) {
             var o = { addr: cfg.pca.addr, freq: cfg.pca.freq };
@@ -85,8 +104,12 @@ function initHardware() {
             return false;
         }
         bot = new MiniKame({ pca: pca, cfg: cfg });
-        bot.home(400);
-        log('PCA9685 ok: 8 servos calibrados, indo para home');
+        if (home) {
+            bot.home(400);
+            log('PCA9685 ok: 8 servos calibrados, indo para home');
+        } else {
+            log('PCA9685 ok: 8 servos calibrados (mapeamento, sem home)');
+        }
         return true;
     } catch (e) {
         log('falha no hardware: ' + e);
@@ -106,13 +129,41 @@ function pintar(color) {
 // ---- controle ---------------------------------------------------------------
 var link = null;
 
-if (!initHardware()) {
+if (!initHardware(!mapeando)) {
     pintar(HW.led.rgb(120, 0, 0));
     // Tenta de novo: cabo solto/energia do PCA nao exige reboot do robo.
     while (true) {
         System.delay(2000);
         log('tentando o PCA9685 de novo...');
-        if (initHardware()) break;
+        if (initHardware(!mapeando)) break;
+    }
+}
+
+// ---- modo mapeamento (bancada) ---------------------------------------------
+// Um servo por vez; BOOT curto passa para o proximo logico. Sem Celer Link.
+if (mapeando) {
+    var map = Mapear.create({ robot: bot, log: log });
+    map.start(System.millis());
+    log('modo mapeamento: sem Celer Link; apoie o robo (so o servo testado recebe pulso)');
+
+    var lastCorMap = -1;
+    var corProxMap = 0;
+    while (true) {
+        var nowMap = System.millis();
+        map.tick(nowMap);
+        if (typeof System.button === 'function' && System.button() === 1) {
+            map.next(nowMap);
+        }
+        if (nowMap >= corProxMap) {
+            corProxMap = nowMap + 200;
+            var piscaMap = Math.floor(nowMap / 400) % 2 === 0;
+            var corMap = piscaMap ? HW.led.rgb(90, 0, 90) : 0;   // magenta
+            if (corMap !== lastCorMap) {
+                lastCorMap = corMap;
+                pintar(corMap);
+            }
+        }
+        System.delay(20);
     }
 }
 
