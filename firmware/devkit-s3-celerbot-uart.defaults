@@ -1,0 +1,38 @@
+# CelerBot: console na UART0 (USB-C "UART") e GPIO19/20 livres para o I2C.
+#
+# Variante para quando o chicote do PCA ja esta em 19/20/21 e nao da para
+# abrir o robo: o firmware NAO usa USB nenhum, entao o PHY interno fica livre
+# e o app pode abrir o I2C em SDA=21/SCL=20 com o OE no 19.
+#
+# Console/celerctl/flash: a OUTRA USB-C do devkit, a rotulada UART (CP2102N
+# em UART0). A USB nativa (GPIO19/20) deixa de existir como console.
+#
+# O perfil da placa ficou condicional: 19/20 so entram no gpioDeniedMask se
+# CELEROS_USB_HOST, CELEROS_LINK_ON_USJ ou CELEROS_USB_NATIVE estiver ligado.
+# Aqui os tres estao desligados.
+#
+# Uso (o tools/build-firmware.sh --uart faz isso):
+#   idf.py -B build-celerbot-uart -DSDKCONFIG=build-celerbot-uart/sdkconfig \
+#     -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;boards/devkit-s3/sdkconfig.defaults;<este arquivo>" \
+#     -DCELEROS_BOARD=devkit-s3 set-target esp32s3
+#
+# NimBLE enxuto: 1 conexao, os 4 papeis e MTU 256; pools do HOST na PSRAM
+# (a RAM interna fica para o controller + WiFi + DMA).
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
+# CONFIG_BT_NIMBLE_NVS_PERSIST is not set
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# O Celer Link dos apps (CelerLink.*).
+CONFIG_CELEROS_BLUETOOTH=y
+
+# Sem USB nenhum: libera 19/20 para o I2C/OE do PCA.
+# CONFIG_CELEROS_LINK_ON_USJ is not set
+# CONFIG_CELEROS_USB_HOST is not set
+# CONFIG_CELEROS_USB_NATIVE is not set

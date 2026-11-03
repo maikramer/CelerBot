@@ -26,13 +26,17 @@ módulos ES5), com interface = rádio (Celer Link) + LED + BOOT.
 | 8 servos | miniKame: S0..S7 (quadril + joelho de cada pata) |
 | Fonte 5 V | **externa**, 5 A ou mais; 8 servos podem puxar picos altos |
 
-### Ligação
+### Ligação atual (provisória, robô fechado)
+
+O chicote está em 21/20/19 e o robô será aberto outro dia. Como 19/20 são a
+USB nativa, esta variante **não usa USB**: o console/celerctl vai para a
+segunda USB-C (rotulada **UART**, CP2102N) e o firmware é o `--uart`.
 
 ```
 DevKitC-1            PCA9685                  servos
 GPIO21 ─── SDA ───── SDA
-GPIO47 ─── SCL ───── SCL
-GPIO48 ─── OE  ───── (o app puxa LOW antes do init; -1 = OE no GND)
+GPIO20 ─── SCL ───── SCL
+GPIO19 ─── OE  ───── (o app puxa LOW antes do init; -1 = OE no GND)
 3V3    ─── VCC ───── VCC (lógico)
 GND    ─── GND ───── GND ─────────────── GND da fonte 5 V (comum!)
                      V+ ────────────────── +5 V da fonte (NUNCA o 5 V do devkit)
@@ -40,56 +44,75 @@ GND    ─── GND ───── GND ─────────────
 GPIO38 ───────────── LED WS2812 onboard (status)
 ```
 
-- **GPIO19/20 são o USB nativo** (D-/D+) e o perfil `devkit-s3` os reserva em
-  `gpioDeniedMask`: `System.i2c.beginAt(..., 20)` falha com "GPIO 20 invalido
-  para I2C (saida/reservado)". O firmware do CelerBot usa essa USB como
-  console/celerctl — **não ligue nada em 19/20**.
-- **OE é ativo em nível baixo**. Se ficar no **GND**, o PCA já nasce
-  habilitado. Se ficar num GPIO (padrão `oe: 48`), o app o puxa para LOW
-  antes do init; sem isso as saídas ficam desligadas e os servos não recebem
-  PWM. O driver `celeros.hw.pca9685` não mexe no OE.
-- O S3 **não tem GPIO22..25**. O bus é criado com `beginAt(21, 47, 100k)`.
+### Ligação definitiva (quando abrir o robô)
+
+Movendo só o SCL e o OE, a USB nativa volta a ser console/flash (um cabo só)
+e vale o firmware padrão:
+
+| Fio | GPIO |
+|-----|------|
+| SDA | 21 |
+| SCL | 47 |
+| OE | 48 (ou direto no GND) |
+
+Aí é trocar `pca.scl`/`pca.oe` em `calibracao.js` e compilar sem `--uart`.
+
+- **GPIO19/20 são a USB nativa** (D-/D+). Nesta variante provisória o
+  firmware não tem USB nenhum, então o perfil `devkit-s3` libera os dois
+  para o I2C (o `gpioDeniedMask` só os nega quando há host/USJ no build).
+  Com qualquer USB no build, `System.i2c.beginAt(..., 20)` falha com "GPIO
+  20 invalido para I2C (saida/reservado)".
+- **OE é ativo em nível baixo**. No GND o PCA nasce habilitado; num GPIO
+  (aqui `oe: 19`, na definitiva `oe: 48`) o app o puxa para LOW antes do
+  init. O driver `celeros.hw.pca9685` não mexe no OE.
+- O S3 **não tem GPIO22..25**. O bus atual é `beginAt(21, 20, 100k)`; na
+  definitiva, `beginAt(21, 47, 100k)`.
 - **GPIO48 no DevKitC-1 v1.0 é o LED RGB onboard**: como OE (saída LOW) ele
-  só apaga o LED; **não use 48 como SCL** nessa revisão. GPIO47 é livre.
-- Outros GPIOs livres servem desde que não sejam 19/20, 26..37 (flash/PSRAM
-  octal), 43/44 (UART0 do console) — aí é só trocar `pca.sda`/`pca.scl`/
-  `pca.oe` em `calibracao.js`.
+  só apaga o LED; **não use 48 como SCL** nessa revisão.
+- Fora esses, 26..37 são flash/PSRAM octal e 43/44 a UART0 — não use.
 - Endereço padrão do PCA9685: `0x40` (A0..A5 em GND). O app tenta de novo a
   cada 2 s se o chip não responder (cabo solto não exige reboot).
 - Um capacitor de 1000 µF na entrada de 5 V do PCA ajuda nos picos.
 
 ## Firmware
 
-O CelerOS do devkit-s3 **não liga o Bluetooth por padrão** e usa a USB
-nativa como host OTG (a placa é o laboratório de USB do projeto). Para o
-Celer Remote, recompile com o fragmento
-`firmware/devkit-s3-celerbot.defaults`, que liga o NimBLE e troca o host
-OTG pelo **console/celerctl na USB-Serial/JTAG nativa** — o robô não usa
-`USB.*`, então um cabo só resolve flash, app e logcat:
+Duas variantes do CelerOS do devkit-s3, ambas com BT/NimBLE e `CelerLink`:
 
 ```bash
-tools/build-firmware.sh            # CELEROS_DIR=../CelerOS, build-celerbot/
-tools/build-firmware.sh --fresh    # se build-celerbot/sdkconfig já existia sem BT
+tools/build-firmware.sh          # console na USB nativa (USJ); PCA 21/47/48
+tools/build-firmware.sh --uart   # SEM USB; console na UART; PCA 21/20/19
 ```
 
-Grave pela USB-C rotulada **USB** (nativa, `/dev/ttyACM0`); a **UART**
-(CP2102N) fica opcional nesta variante:
+O robô está na **`--uart`** (build `build-celerbot-uart/`): o firmware não
+liga host OTG nem USJ, então GPIO19/20 ficam livres para o I2C, e o
+console/celerctl/logcat vão para a USB-C rotulada **UART** (CP2102N,
+`/dev/ttyUSB1` no Linux). A USB nativa deixa de existir como console.
 
 ```bash
-idf.py -B build-celerbot -p /dev/ttyACM0 flash
+tools/build-firmware.sh --uart
+# antes de trocar o console, a USJ ainda grava:
+idf.py -B build-celerbot-uart -p /dev/ttyACM0 flash
+# depois da troca, grave/abra o console pela UART:
+idf.py -B build-celerbot-uart -p /dev/ttyUSB1 flash
 ```
 
-Detalhes e o porquê dos pools NimBLE na PSRAM: [firmware/README.md](firmware/README.md).
+O perfil da placa foi ajustado para negar 19/20 **só** quando
+`CELEROS_USB_HOST`, `CELEROS_LINK_ON_USJ` ou `CELEROS_USB_NATIVE` está no
+build. Detalhes: [firmware/README.md](firmware/README.md).
 
 ## Instalar o app
 
 O CelerBot **não está no catálogo do hub** — é instalado do repo:
 
 ```bash
-tools/deploy.sh /dev/ttyACM0            # instala e abre
-tools/deploy.sh /dev/ttyACM0 --boot     # + autostart (o robô já sobe nele)
-tools/deploy.sh /dev/ttyACM0 --local-deps   # dep celeros.hw do clone do CelerOS
+tools/deploy.sh /dev/ttyUSB1            # instala e abre (UART do devkit)
+tools/deploy.sh /dev/ttyUSB1 --boot     # + autostart (o robô já sobe nele)
+tools/deploy.sh /dev/ttyUSB1 --local-deps   # dep celeros.hw do clone do CelerOS
 ```
+
+Na variante `--uart` o console é a **USB-C UART do devkit** (`/dev/ttyUSB1`
+no Linux; o 4848 ocupa o `ttyUSB0`). A ordem CH340/CP2102 pode trocar:
+`celerctl devices -l` mostra qual porta é o `devkit-s3`.
 
 O `celerctl` resolve `celeros.hw` (PCA9685/servo/LED) no hub. O script
 também concede o **consentimento headless** (`grant CelerBot`): sem tela não
@@ -172,7 +195,7 @@ frouxos) e alterna 90° → 110° → 90° a cada 800 ms.
 1. Apoie o robô: no modo mapeamento só o servo testado recebe pulso.
 2. Entre no modo e reabra o app:
    ```bash
-   tools/deploy.sh /dev/ttyACM0 --map
+   tools/deploy.sh /dev/ttyUSB1 --map
    ```
    (equivale a criar `/local/data/celeros.celerbot/mapear.txt` e
    `celerctl apps run celeros.celerbot`).
@@ -187,7 +210,7 @@ frouxos) e alterna 90° → 110° → 90° a cada 800 ms.
 5. Rode `--map` de novo: agora cada lógico deve mover a junta certa. Se uma
    junta girar ao contrário quando o robô for para o home, marque
    `reverse: true` nela.
-6. Saia do modo: `tools/deploy.sh /dev/ttyACM0 --map-off` (remove o
+6. Saia do modo: `tools/deploy.sh /dev/ttyUSB1 --map-off` (remove o
    marcador e reabre no modo normal). Segurar o BOOT também sai do app.
 
 ## Calibração

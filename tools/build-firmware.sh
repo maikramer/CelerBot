@@ -1,34 +1,48 @@
 #!/usr/bin/env bash
-# Compila o CelerOS do ESP32-S3 DevKitC-1 com o Bluetooth do Celer Link.
+# Compila o CelerOS do ESP32-S3 DevKitC-1 para o CelerBot.
 #
-# O fragmento firmware/devkit-s3-celerbot.defaults entra por cima dos defaults da
-# placa; o build dir e proprio (build-celerbot) para nao sobrescrever o
-# build-devkit-s3 de outros experimentos.
+# Duas variantes (o fragmento entra por cima dos defaults da placa):
+#   (padrao) console na USB nativa (USJ) — um cabo so; PCA em 21/47/48.
+#   --uart   console na UART0 (USB-C "UART"); sem USB host/USJ, libera
+#            GPIO19/20 para o I2C (PCA em 21/20/19).
 #
-#   tools/build-firmware.sh            # configura (se preciso) e compila
-#   tools/build-firmware.sh --fresh    # apaga build-celerbot/sdkconfig e regera
+#   tools/build-firmware.sh            # build-celerbot (USJ)
+#   tools/build-firmware.sh --uart     # build-celerbot-uart (UART)
+#   tools/build-firmware.sh --fresh    # apaga o sdkconfig do build e regera
 #
-# Variaveis: CELEROS_DIR (default: ../CelerOS), BUILD (default: build-celerbot).
+# Variaveis: CELEROS_DIR (default: ../CelerOS), BUILD (default por variante).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FRAG="$ROOT/firmware/devkit-s3-celerbot.defaults"
-BUILD="${BUILD:-build-celerbot}"
+FRAG_USJ="$ROOT/firmware/devkit-s3-celerbot.defaults"
+FRAG_UART="$ROOT/firmware/devkit-s3-celerbot-uart.defaults"
+FRAG=""
+BUILD="${BUILD:-}"
 FRESH=0
+UART=0
 
 for arg in "$@"; do
     case "$arg" in
         --fresh) FRESH=1 ;;
+        --uart) UART=1 ;;
         -h|--help)
-            sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
-            echo "argumento desconhecido: $arg (use --fresh ou --help)" >&2
+            echo "argumento desconhecido: $arg (use --uart, --fresh ou --help)" >&2
             exit 2
             ;;
     esac
 done
+
+if [ "$UART" = 1 ]; then
+    FRAG="$FRAG_UART"
+    [ -n "$BUILD" ] || BUILD="build-celerbot-uart"
+else
+    FRAG="$FRAG_USJ"
+    [ -n "$BUILD" ] || BUILD="build-celerbot"
+fi
 
 if [ -z "${CELEROS_DIR:-}" ]; then
     CELEROS_DIR="$(cd "$ROOT/.." && pwd)/CelerOS"
@@ -92,5 +106,12 @@ echo -n "   idf:     "
 
 echo ""
 echo "firmware: $CELEROS_DIR/$BUILD/CelerOS.bin"
-echo "grave pela USB rotulada UART:"
-echo "  idf.py -B $BUILD -p /dev/ttyACM0 flash"
+if [ "$UART" = 1 ]; then
+    echo "grave pela USB nativa (USJ) enquanto ela existir; depois o console"
+    echo "e o flash passam para a USB-C rotulada UART (CP2102N):"
+    echo "  idf.py -B $BUILD -p /dev/ttyACM0 flash   # antes da troca"
+    echo "  idf.py -B $BUILD -p /dev/ttyUSB1 flash   # depois"
+else
+    echo "grave pela USB-C rotulada USB (nativa, /dev/ttyACM0):"
+    echo "  idf.py -B $BUILD -p /dev/ttyACM0 flash"
+fi

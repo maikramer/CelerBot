@@ -12,19 +12,22 @@
 // reverse= inverte o sentido do servo (monte espelhado).
 // ch     = canal do PCA9685 (0..15). Canais 8..15 ficam livres para pan/tilt.
 //
-// Fiacao no ESP32-S3 DevKitC-1: I2C em GPIO21 (SDA) e GPIO47 (SCL); o OE do
-// PCA fica no GPIO48 (ativo em nivel baixo: o app puxa LOW antes do init)
-// ou direto no GND. GPIO19/20 sao o USB nativo (console/celerctl); 26..37
-// sao flash/PSRAM octal; 43/44 a UART0; o S3 nao tem 22..25.
-// No DevKitC-1 v1.0 o GPIO48 e o LED RGB onboard: como OE (saida LOW) ele
-// so apaga o LED; NAO use 48 como SCL nessa revisao.
+// Fiacao ATUAL (variante provisoria, robo fechado): I2C em GPIO21 (SDA) e
+// GPIO20 (SCL), OE no GPIO19. Esses dois sao os pinos da USB nativa do S3:
+// esta calibracao exige o firmware sem USB (tools/build-firmware.sh --uart),
+// com o console/celerctl na OUTRA USB-C (rotulada UART, CP2102N).
+//
+// Quando abrir o robo, mova SCL/OE para GPIO47/GPIO48 (ou 11-14) e volte ao
+// firmware padrao (console na USB nativa, um cabo so); ai troque pca.scl/oe.
+// 26..37 sao flash/PSRAM octal, 43/44 a UART0 e 19/20 a USB: nao use para
+// outra coisa sem desligar a USB no build.
 // VCC logico do PCA9685 em 3V3; servo V+ em fonte 5V separada com GND comum.
 
 module.exports = {
     // PCA9685: endereco padrao 0x40 (A0..A5 em GND), 50 Hz para servos.
     // hz = clock do I2C (100 kHz tolera dupont longo com pull-up de 10k).
     // oe = GPIO do OE do PCA; use -1 se o OE estiver no GND.
-    pca: { addr: 0x40, freq: 50, sda: 21, scl: 47, hz: 100000, oe: 48 },
+    pca: { addr: 0x40, freq: 50, sda: 21, scl: 20, hz: 100000, oe: 19 },
 
     // Faixa de pulso dos servos (500..2500 us cobre a maioria dos SG90/MG90S;
     // aperte para 600..2400 se o servo zumbir nos extremos).

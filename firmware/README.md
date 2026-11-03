@@ -23,6 +23,22 @@ firmware/devkit-s3-celerbot.defaults
 | `BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y` | pools do HOST na PSRAM (a RAM interna fica para o controller + WiFi + DMA) |
 | `CELEROS_BLUETOOTH=y` | objeto global `CelerLink` |
 
+## Variante `--uart` (sem USB; PCA em 19/20/21)
+
+Para o chicote que não alcança outros pinos e o robô não será aberto agora:
+o firmware **não liga host OTG nem USJ**. O console/celerctl/logcat vão para
+a **UART0**, na USB-C rotulada **UART** (CP2102N), e GPIO19/20 ficam livres
+para o I2C (SDA 21 / SCL 20 / OE 19).
+
+- fragmento: `firmware/devkit-s3-celerbot-uart.defaults`
+- build: `tools/build-firmware.sh --uart` (`build-celerbot-uart/`)
+- o perfil da placa só nega 19/20 quando `CELEROS_USB_HOST`,
+  `CELEROS_LINK_ON_USJ` ou `CELEROS_USB_NATIVE` está no build
+- flash: pela USJ enquanto ela existir (`/dev/ttyACM0`); depois pela UART
+  (`/dev/ttyUSB1`, ou a porta que o `celerctl devices -l` indicar)
+- é a variante atual do robô; ao abrir, mova SCL/OE para 47/48 e volte ao
+  firmware padrão (USJ), com um cabo só.
+
 ## Compilar
 
 ```bash

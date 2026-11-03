@@ -21,7 +21,7 @@ var Calibracao = require('calibracao');
 var Link = require('link');
 var Mapear = require('mapear');
 
-var VERSION = '0.2.2';   // manter igual ao app.json
+var VERSION = '0.2.3';   // manter igual ao app.json
 
 function log(msg) {
     System.print('[CelerBot] ' + msg);
