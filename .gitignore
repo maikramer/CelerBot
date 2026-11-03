@@ -1,0 +1,8 @@
+# build de firmware/editor e artefatos de bancada
+build/
+build-*/
+.studio/
+*.zip
+
+# sistema
+.DS_Store

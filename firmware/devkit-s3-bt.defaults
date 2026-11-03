@@ -1,0 +1,31 @@
+# CelerBot: Bluetooth (Celer Link) no ESP32-S3 DevKitC-1.
+#
+# O devkit-s3 nasce como "laboratorio de USB host": o sdkconfig.defaults da
+# placa deixa o BT desligado de proposito. O CelerBot e controlado pelo Celer
+# Remote via Celer Link (BLE), entao o firmware dele precisa deste bloco.
+#
+# Uso (o tools/build-firmware.sh faz isso):
+#   idf.py -B build-celerbot -DSDKCONFIG=build-celerbot/sdkconfig \
+#     -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;boards/devkit-s3/sdkconfig.defaults;<este arquivo>" \
+#     -DCELEROS_BOARD=devkit-s3 set-target esp32s3
+#
+# NimBLE enxuto via C API do IDF: 1 conexao, os 4 papeis (o Celer Remote e
+# central; o robo e peripheral, mas o Celer Link inicializa os quatro) e MTU
+# 256 para as mensagens do app. Os pools/buffers do HOST vao para a PSRAM:
+# com tudo na RAM interna o ble_hs_init caia num SYSINIT_PANIC_ASSERT no
+# primeiro scan (medido na SmartDisplay: ~38 KB internos depois do ajuste).
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
+# CONFIG_BT_NIMBLE_NVS_PERSIST is not set
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# O Celer Link dos apps (CelerLink.*): liga o objeto global. Depende dos
+# dois simbolos acima; explicito para o build falhar alto se o bloco NimBLE
+# for removido.
+CONFIG_CELEROS_BLUETOOTH=y

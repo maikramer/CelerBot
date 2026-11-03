@@ -1,0 +1,18 @@
+{
+  "name": "CelerBot",
+  "packageName": "celeros.celerbot",
+  "version": "0.1.0",
+  "author": "Maikeu Locatelli",
+  "description": "Programa headless do robô CelerBot (miniKame de 8 servos num PCA9685) no ESP32-S3 DevKitC-1: marchas e truques do miniKame/Octosnake portados para JS, calibração por servo e controle pelo Celer Remote via Celer Link (BLE). Sem tela: LED WS2812 da placa mostra o estado e o BOOT roda os truques na bancada.",
+  "type": "App",
+  "category": "Utility",
+  "api": 54,
+  "permissions": [
+    "gpio",
+    "fs"
+  ],
+  "deps": {
+    "celeros.hw": "^1.0.0"
+  },
+  "changelog": "0.1.0 - primeira versão: porte das marchas do miniKame (walk, turn, run, omni, dance, upDown, pushUp, frontBack, moonwalk) e das poses hello/jump; 8 servos no PCA9685 por I2C (GPIO8/9 do S3); calibração por trim/reverse com override em /local/data/celeros.celerbot/calibracao.json; Celer Remote com move/stop/mode/trick, keepalive de 900 ms e parada na queda do link; pareamento por código no logcat; LED de status (pareando/conectado/andando/truque) e BOOT roda os truques sem controle"
+}
