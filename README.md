@@ -31,10 +31,10 @@ módulos ES5), com interface = rádio (Celer Link) + LED + BOOT.
 ```
 DevKitC-1            PCA9685                  servos
 GPIO21 ─── SDA ───── SDA
-GPIO9  ─── SCL ───── SCL
+GPIO47 ─── SCL ───── SCL
+GPIO48 ─── OE  ───── (o app puxa LOW antes do init; -1 = OE no GND)
 3V3    ─── VCC ───── VCC (lógico)
 GND    ─── GND ───── GND ─────────────── GND da fonte 5 V (comum!)
-GND    ─── OE  ───── (habilita as saídas; OE é ativo em nível baixo)
                      V+ ────────────────── +5 V da fonte (NUNCA o 5 V do devkit)
                      CH0..CH7 ──────────── S0..S7 (ordem em calibracao.js)
 GPIO38 ───────────── LED WS2812 onboard (status)
@@ -42,15 +42,18 @@ GPIO38 ───────────── LED WS2812 onboard (status)
 
 - **GPIO19/20 são o USB nativo** (D-/D+) e o perfil `devkit-s3` os reserva em
   `gpioDeniedMask`: `System.i2c.beginAt(..., 20)` falha com "GPIO 20 invalido
-  para I2C (saida/reservado)". Não use 19/20 para I2C nem para OE.
-- **OE não é GPIO**: o driver `celeros.hw.pca9685` nunca configura OE. Ligue
-  ao **GND** para habilitar os 16 canais; solto (ou alto) as saídas ficam
-  desligadas e os servos não recebem PWM.
-- O S3 **não tem GPIO22..25**. O exemplo `{sda:22,scl:27}` do driver é de
-  outra placa; aqui o bus é criado com `beginAt(21, 9, 400k)`.
-- Outros GPIOs livres servem (ex.: SDA 8 + SCL 9, o par do exemplo da doc do
-  CelerOS) desde que não sejam 19/20, 26..37 (flash/PSRAM octal) nem 43/44
-  (UART0 do console) — aí é só trocar `pca.sda`/`pca.scl` em `calibracao.js`.
+  para I2C (saida/reservado)". O firmware do CelerBot usa essa USB como
+  console/celerctl — **não ligue nada em 19/20**.
+- **OE é ativo em nível baixo**. Se ficar no **GND**, o PCA já nasce
+  habilitado. Se ficar num GPIO (padrão `oe: 48`), o app o puxa para LOW
+  antes do init; sem isso as saídas ficam desligadas e os servos não recebem
+  PWM. O driver `celeros.hw.pca9685` não mexe no OE.
+- O S3 **não tem GPIO22..25**. O bus é criado com `beginAt(21, 47, 100k)`.
+- **GPIO48 no DevKitC-1 v1.0 é o LED RGB onboard**: como OE (saída LOW) ele
+  só apaga o LED; **não use 48 como SCL** nessa revisão. GPIO47 é livre.
+- Outros GPIOs livres servem desde que não sejam 19/20, 26..37 (flash/PSRAM
+  octal), 43/44 (UART0 do console) — aí é só trocar `pca.sda`/`pca.scl`/
+  `pca.oe` em `calibracao.js`.
 - Endereço padrão do PCA9685: `0x40` (A0..A5 em GND). O app tenta de novo a
   cada 2 s se o chip não responder (cabo solto não exige reboot).
 - Um capacitor de 1000 µF na entrada de 5 V do PCA ajuda nos picos.

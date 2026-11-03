@@ -21,7 +21,7 @@ var Calibracao = require('calibracao');
 var Link = require('link');
 var Mapear = require('mapear');
 
-var VERSION = '0.2.1';   // manter igual ao app.json
+var VERSION = '0.2.2';   // manter igual ao app.json
 
 function log(msg) {
     System.print('[CelerBot] ' + msg);
@@ -87,9 +87,31 @@ log('I2C sda=' + cfg.pca.sda + ' scl=' + cfg.pca.scl +
 var pca = null;
 var bot = null;
 var led = null;
+var oeLogado = false;
 
 function initHardware(home) {
     try {
+        // OE do PCA e ativo em nivel baixo. Num GPIO ele precisa ser puxado
+        // para LOW ANTES do init; no GND (oe=-1) nada a fazer.
+        if (typeof cfg.pca.oe === 'number' && cfg.pca.oe >= 0) {
+            try {
+                var G = System.gpio;
+                if (G && G.pinMode && G.digitalWrite) {
+                    if (cfg.pca.oe === cfg.pca.sda || cfg.pca.oe === cfg.pca.scl) {
+                        log('OE no mesmo pino do I2C (' + cfg.pca.oe + '): ignorado');
+                    } else {
+                        G.pinMode(cfg.pca.oe, G.OUTPUT);
+                        G.digitalWrite(cfg.pca.oe, G.LOW);
+                        if (!oeLogado) {
+                            oeLogado = true;
+                            log('OE no GPIO' + cfg.pca.oe + ' em LOW (saidas habilitadas)');
+                        }
+                    }
+                }
+            } catch (e3) {
+                log('OE no GPIO' + cfg.pca.oe + ' falhou: ' + e3);
+            }
+        }
         if (!pca) {
             var o = { addr: cfg.pca.addr, freq: cfg.pca.freq };
             if (typeof cfg.pca.sda === 'number' && cfg.pca.sda >= 0) {
