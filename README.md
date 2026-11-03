@@ -88,7 +88,10 @@ tools/deploy.sh /dev/ttyACM0 --boot     # + autostart (o robô já sobe nele)
 tools/deploy.sh /dev/ttyACM0 --local-deps   # dep celeros.hw do clone do CelerOS
 ```
 
-O `celerctl` resolve `celeros.hw` (PCA9685/servo/LED) no hub. Publicar no
+O `celerctl` resolve `celeros.hw` (PCA9685/servo/LED) no hub. O script
+também concede o **consentimento headless** (`grant CelerBot`): sem tela não
+há diálogo de permissão, e sem o grant o `System.i2c` nem nasce — o app
+subiria e falharia no PCA com "System.i2c indisponivel". Publicar no
 catálogo público é opcional e independente deste repo:
 
 ```bash

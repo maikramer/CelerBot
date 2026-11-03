@@ -21,7 +21,7 @@ var Calibracao = require('calibracao');
 var Link = require('link');
 var Mapear = require('mapear');
 
-var VERSION = '0.2.0';   // manter igual ao app.json
+var VERSION = '0.2.1';   // manter igual ao app.json
 
 function log(msg) {
     System.print('[CelerBot] ' + msg);
@@ -101,6 +101,17 @@ function initHardware(home) {
         }
         if (!pca.init()) {
             log('PCA9685 sem resposta: ' + pca.lastError);
+            // Diagnostico: o bus abriu (21/9), mas o chip nao respondeu. O
+            // scan separa "nada ligado" de "endereco diferente de 0x40".
+            try {
+                if (System.i2c && System.i2c.scan) {
+                    var vistos = System.i2c.scan();
+                    log('I2C scan sda=' + cfg.pca.sda + ' scl=' + cfg.pca.scl + ': ' +
+                        (vistos && vistos.length ? vistos.join(' ') : 'nenhum device'));
+                }
+            } catch (e2) {
+                log('I2C scan falhou: ' + e2);
+            }
             return false;
         }
         bot = new MiniKame({ pca: pca, cfg: cfg });

@@ -76,15 +76,21 @@ if [ -n "$PORT" ]; then
 fi
 
 INSTALL=(apps install "$APP")
-if [ "$RUN" = 1 ]; then
-    INSTALL+=(--run)
-fi
 if [ "$LOCAL_DEPS" = 1 ]; then
     INSTALL+=(--deps-local)
 fi
 
 echo "== instalando CelerBot =="
 python3 "$CELERCTL" "${ARGS[@]}" "${INSTALL[@]}"
+
+# Placa headless nao tem dialogo de permissao: sem o grant, System.i2c/gpio
+# nem nascem (o app sobe e falha no PCA com "System.i2c indisponivel").
+echo "== consentimento (grant headless) =="
+python3 "$CELERCTL" "${ARGS[@]}" shell "grant CelerBot"
+
+if [ "$RUN" = 1 ]; then
+    python3 "$CELERCTL" "${ARGS[@]}" apps run celeros.celerbot
+fi
 
 if [ "$MAP" = 1 ] && [ "$MAP_OFF" = 1 ]; then
     echo "erro: --map e --map-off sao exclusivos" >&2
