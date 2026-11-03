@@ -39,6 +39,11 @@ exports.wire = function (env) {
     h.i2cAdd(0x40, {});
     h.setLink({ conn: true, pairing: false });
 
+    // Home curto no harness: os marcos antigos (800 ms) ainda pegam tudo
+    // parado. No robo o padrao e 120/150 (protecao de corrente do boot).
+    env.FS.writeTextFile(env.FS.appData() + 'calibracao.json',
+        JSON.stringify({ home: { stepMs: 20, rampMs: 20 } }));
+
     var base = env.System.delay;
     var pi = 0, mi = 0;
     env.System.delay = function (ms) {

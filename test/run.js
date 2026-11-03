@@ -186,6 +186,8 @@ function quantosLongeDeHome(regs, tol) {
         events: (env) => {
             env.__harness.i2cAdd(0x40, {});
             env.__harness.setLink({ conn: true, pairing: true, code: "654321" });
+            env.FS.writeTextFile(env.FS.appData() + "calibracao.json",
+                JSON.stringify({ home: { stepMs: 20, rampMs: 20 } }));
         }
     });
     const txt = (r.log || []).join("\n");
@@ -205,6 +207,8 @@ function quantosLongeDeHome(regs, tol) {
         events: (env) => {
             env.__harness.i2cAdd(0x40, {});
             env.CelerLink = undefined;
+            env.FS.writeTextFile(env.FS.appData() + "calibracao.json",
+                JSON.stringify({ home: { stepMs: 20, rampMs: 20 } }));
         }
     });
     const txt = (r.log || []).join("\n");
@@ -256,6 +260,32 @@ function quantosLongeDeHome(regs, tol) {
     const offs = ch0.map((w) => w.data[2] | ((w.data[3] & 0x0F) << 8));
     check("alterna 90/110 graus (offs 307/353)",
           offs.indexOf(307) >= 0 && offs.indexOf(353) >= 0, offs.join(","));
+})();
+
+// ---- idleRelease: solta os servos depois de N ms parado (opt-in) ---------
+(function () {
+    console.log("CelerBot: idleRelease solta os servos parados");
+    const r = runAppFolder(appDir, {
+        noAppWire: true,
+        stopAtMs: 2500,
+        events: (env) => {
+            env.__harness.i2cAdd(0x40, {});
+            env.FS.writeTextFile(env.FS.appData() + "calibracao.json", JSON.stringify({
+                home: { stepMs: 20, rampMs: 20 },
+                idleReleaseMs: 1000
+            }));
+        }
+    });
+    const txt = (r.log || []).join("\n");
+    check("app roda sem erro", r.err === null, r.err || "");
+    check("libera apos 1000 ms parado", /servos liberados/.test(txt), txt);
+
+    const regs = r.env.__harness.i2cRegs(0x40);
+    let zerados = true;
+    for (let ch = 0; ch < 8; ch++) if (offDe(regs, ch) !== 0) zerados = false;
+    check("canais 0..7 com PWM 0", zerados);
+    check("ALL_LED 0 no fio",
+          r.env.__harness.i2cWrites().some((w) => w.addr === 0x40 && w.reg === 0xFA));
 })();
 
 console.log("");

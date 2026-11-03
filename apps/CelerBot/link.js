@@ -26,6 +26,9 @@ function create(opts) {
     var bot = opts.bot;
     var log = opts.log || function () {};
     var idleStopMs = typeof opts.idleStopMs === 'number' ? opts.idleStopMs : 900;
+    var idleReleaseMs = typeof opts.idleReleaseMs === 'number' ? opts.idleReleaseMs : 0;
+    var homeStepMs = typeof opts.homeStepMs === 'number' ? opts.homeStepMs : 120;
+    var homeRampMs = typeof opts.homeRampMs === 'number' ? opts.homeRampMs : 150;
     var pairing = opts.pairing !== false;
     var name = opts.name || 'CelerBot';
 
@@ -34,6 +37,8 @@ function create(opts) {
     var lastMove = 0;
     var lastCode = '';
     var lastTel = 0;
+    var released = false;
+    var lastMsg = nowMs();
 
     function available() {
         return typeof CelerLink !== 'undefined' && CelerLink !== null;
@@ -70,6 +75,17 @@ function create(opts) {
         var v = null;
         try { v = JSON.parse(raw); } catch (e) { return; }
         if (!v || typeof v.type !== 'string') return;
+
+        lastMsg = now;
+        // Depois de liberado (OE alto/sem pulso), o primeiro comando so
+        // re-arma: home sequencial e espera. O Remote repete o move a cada
+        // 250 ms (truque de um toque precisa de um segundo toque).
+        if (released) {
+            released = false;
+            bot.homeSeq(homeStepMs, homeRampMs);
+            log('acordou: home sequencial antes de obedecer');
+            return;
+        }
 
         if (v.type === 'move') {
             var dir = String(v.dir || '');
@@ -142,6 +158,16 @@ function create(opts) {
             lastMove = 0;
             bot.stop();
             log('sem comando ha ' + idleStopMs + ' ms: parado');
+        }
+
+        // Protecao de energia: parado ha muito tempo, solta os servos (PWM 0
+        // + OE alto). O robo desaba; o proximo comando re-arma com home
+        // sequencial. idleReleaseMs=0 desliga.
+        if (idleReleaseMs > 0 && !released && !bot.moving() &&
+            now - lastMsg > idleReleaseMs) {
+            released = true;
+            bot.release();
+            log('idle ' + idleReleaseMs + ' ms: servos liberados (OE alto, sem hold)');
         }
 
         if (st.connected && now - lastTel >= 1000) {

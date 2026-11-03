@@ -225,6 +225,8 @@ Para ajustar sem reinstalar o app, empurre um override para a pasta privada:
 {
   "minUs": 500,
   "maxUs": 2500,
+  "home": { "stepMs": 120, "rampMs": 150 },
+  "idleReleaseMs": 0,
   "servos": [
     { "ch": 0, "trim": 0,  "reverse": false },
     { "ch": 1, "trim": -8, "reverse": false },
@@ -245,6 +247,41 @@ celerctl apps run CelerBot
 
 Sem o arquivo (ou com JSON inválido) vale a calibração do pacote. A pose de
 repouso (`HOME`) e as marchas ficam em `marchas.js`.
+
+## Proteções de energia (e os limites do PCA9685)
+
+O PCA **não tem chave de energia por servo**. O que ele oferece:
+
+| Recurso | O que faz | Alcance |
+|---------|-----------|---------|
+| **OE** (pino) | desliga as 16 saídas de uma vez (alta impedância) | global |
+| **PWM off** (`setPwm(ch, 0, 0)`) | tira o pulso daquele canal → servo frouxo, sem torque | por canal |
+| **ALL_LED** | zera os 16 canais numa escrita | global |
+
+Não existe power switch por canal: o V+ dos servos é um barramento único. E
+**não dá para multiplexar no tempo**: cada servo precisa de um pulso a cada
+20 ms (50 Hz); o PCA já gera os 16 em hardware, e a corrente é a dos servos,
+não do chip. Pulsar um de cada vez deixa os outros sem pulso (sem torque) e
+o robô desaba.
+
+O que o app faz para reduzir o pico:
+
+1. **Home sequencial** (`home.stepMs`/`home.rampMs`, padrão 120/150 ms ≈
+   2,2 s): energiza um servo por vez; os ainda não chamados ficam sem pulso.
+   Reduz o inrush do boot/home, mas o robô não se sustenta durante a
+   sequência — apoie.
+2. **`idleReleaseMs`** (opt-in, padrão `0`): parado há N ms, `release()`
+   zera o PWM de cada canal, escreve `ALL_LED=0` e sobe o OE. Acaba o
+   **hold current**; o robô desaba. O próximo comando re-arma com home
+   sequencial e só então obedece (o primeiro `move`/truque é consumido no
+   re-arm; o Remote repete o move, um truque precisa de um segundo toque).
+3. **OE como kill global**: o mesmo pino do OE (19 na variante atual) pode
+   ser subido a qualquer momento; o app o usa no release.
+
+Ainda assim, **a fonte é a peça principal**: 8 servos podem puxar 0,5–1 A de
+hold e vários ampères de pico. Use **5 V / 5 A** (ou mais) com **GND comum**
+e 1000 µF junto ao PCA. O USB do devkit não alimenta os servos — foi o que
+causou o brownout e a corrupção da flash na primeira bancada.
 
 ## Protocolo (para um controle próprio)
 

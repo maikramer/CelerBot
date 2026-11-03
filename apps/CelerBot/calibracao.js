@@ -49,6 +49,13 @@ module.exports = {
     tickMs: 20,
     // Sem move repetido por este tempo (o Remote repete a cada 250 ms).
     idleStopMs: 900,
+    // Home sequencial: stepMs entre um servo e o proximo, rampMs de rampa.
+    // 8 x (150+120) = ~2,2 s de home; reduz o pico de corrente do boot.
+    home: { stepMs: 120, rampMs: 150 },
+    // Protecao opcional: parado ha N ms, solta TODOS os servos (PWM 0 + OE
+    // alto) e o robo desaba; o proximo comando re-arma com home sequencial.
+    // 0 = desligado (o robo fica em pe segurando o home).
+    idleReleaseMs: 0,
     // Pareamento por codigo (o codigo aparece no logcat; veja o README).
     pairing: true,
     // Nome anunciado no BLE (ate 29 bytes).

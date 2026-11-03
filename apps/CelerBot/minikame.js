@@ -123,6 +123,54 @@ Robot.prototype.zero = function () {
     this.pose(M.ZERO);
 };
 
+// Liga/desliga as saidas do PCA pelo OE (ativo em nivel baixo). Com oe<0
+// (OE no GND) nao ha o que comandar.
+Robot.prototype.setOutputs = function (on) {
+    var oe = this.cfg.pca ? this.cfg.pca.oe : -1;
+    if (typeof oe !== 'number' || oe < 0) return;
+    if (typeof System === 'undefined' || !System.gpio) return;
+    var G = System.gpio;
+    try {
+        G.pinMode(oe, G.OUTPUT);
+        G.digitalWrite(oe, on ? G.LOW : G.HIGH);
+    } catch (e) { /* pino sem permissao: o main ja loga no boot */ }
+};
+
+// Solta TODOS os servos: sem pulso em cada canal e OE alto (saidas em alta
+// impedancia). Nao ha torque de hold; o robo desaba se estiver em pe.
+Robot.prototype.release = function () {
+    this.gait = null;
+    this.seq = null;
+    this.tween = null;
+    this._state = 'parado';
+    for (var i = 0; i < SERVOS; i++) {
+        this.pca.setPwm(this.cfg.servos[i].ch, 0, 0);
+    }
+    this.pca.allOff();
+    this.setOutputs(false);
+};
+
+// Home SEQUENCIAL: um servo por vez (stepMs entre eles, rampMs de rampa).
+// Reduz o pico de corrente do boot/home; os ainda nao chamados ficam sem
+// pulso (frouxos). O robo nao se sustenta durante a sequencia: apoie.
+Robot.prototype.homeSeq = function (stepMs, rampMs) {
+    stepMs = typeof stepMs === 'number' ? stepMs : 120;
+    rampMs = typeof rampMs === 'number' ? rampMs : 150;
+    this.gait = null;
+    this.seq = null;
+    this.tween = null;
+    this._state = 'parado';
+    this.setOutputs(true);   // OE baixo: habilita as saidas
+    var cur = copy(this.pos);
+    var seq = [];
+    for (var i = 0; i < SERVOS; i++) {
+        cur = copy(cur);
+        cur[i] = M.HOME[i];
+        seq.push({ pose: copy(cur), ms: rampMs > 0 ? rampMs : 1, wait: stepMs });
+    }
+    this._startSeq(seq);
+};
+
 // ---- marcha continua ---------------------------------------------------------
 Robot.prototype._startGait = function (def, opts) {
     opts = opts || {};

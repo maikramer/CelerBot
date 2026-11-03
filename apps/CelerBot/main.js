@@ -21,7 +21,7 @@ var Calibracao = require('calibracao');
 var Link = require('link');
 var Mapear = require('mapear');
 
-var VERSION = '0.2.3';   // manter igual ao app.json
+var VERSION = '0.3.0';   // manter igual ao app.json
 
 function log(msg) {
     System.print('[CelerBot] ' + msg);
@@ -138,8 +138,10 @@ function initHardware(home) {
         }
         bot = new MiniKame({ pca: pca, cfg: cfg });
         if (home) {
-            bot.home(400);
-            log('PCA9685 ok: 8 servos calibrados, indo para home');
+            // Home um servo por vez: o pico de corrente de 8 servos juntos
+            // derruba fontes marginais (brownout) e corrompe a flash.
+            bot.homeSeq(cfg.home && cfg.home.stepMs, cfg.home && cfg.home.rampMs);
+            log('PCA9685 ok: 8 servos calibrados, home sequencial');
         } else {
             log('PCA9685 ok: 8 servos calibrados (mapeamento, sem home)');
         }
@@ -205,6 +207,9 @@ link = Link.create({
     name: cfg.name,
     pairing: cfg.pairing,
     idleStopMs: cfg.idleStopMs,
+    idleReleaseMs: cfg.idleReleaseMs,
+    homeStepMs: cfg.home && cfg.home.stepMs,
+    homeRampMs: cfg.home && cfg.home.rampMs,
     log: log
 });
 link.start();
